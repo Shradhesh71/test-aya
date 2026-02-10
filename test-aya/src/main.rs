@@ -2,6 +2,7 @@ use aya::programs::TracePoint;
 #[rustfmt::skip]
 use log::{debug, warn};
 use tokio::signal;
+use aya::maps::{HashMap, MapData};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -47,10 +48,28 @@ async fn main() -> anyhow::Result<()> {
     program.load()?;
     program.attach("syscalls", "sys_enter_execve")?;
 
+    let exclude_list = ["/usr/bin/ls", "/usr/bin/top"];
+    let map = ebpf.map_mut("EXCLUDED_CMDS").unwrap();
+    let mut excluded_cmds :HashMap<&mut MapData, [u8;512], u8> = HashMap::try_from(map)?;
+    for cmd in exclude_list.iter() {
+        let cmd_zero = cmd_to_bytes(cmd);
+        excluded_cmds.insert(cmd_zero, 1, 0)?;
+    }
+    
+    
+
     let ctrl_c = signal::ctrl_c();
     println!("Waiting for Ctrl-C...");
     ctrl_c.await?;
     println!("Exiting...");
 
     Ok(())
+}
+
+fn cmd_to_bytes(cmd: &str) -> [u8; 512] {
+    let mut cmd_zero = [0u8; 512];
+    let cmd_bytes = cmd.as_bytes();
+    let len = cmd_bytes.len();
+    cmd_zero[..len].copy_from_slice(cmd_bytes);
+    cmd_zero
 }
