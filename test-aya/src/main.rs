@@ -1,8 +1,11 @@
-use aya::programs::TracePoint;
+use aya::{maps::ProgramArray, programs::TracePoint};
 #[rustfmt::skip]
 use log::{debug, warn};
 use tokio::signal;
 use aya::maps::{HashMap, MapData};
+
+mod common;
+use crate::common::*;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -48,13 +51,35 @@ async fn main() -> anyhow::Result<()> {
     program.load()?;
     program.attach("syscalls", "sys_enter_execve")?;
 
-    let exclude_list = ["/usr/bin/ls", "/usr/bin/top"];
     let map = ebpf.map_mut("EXCLUDED_CMDS").unwrap();
     let mut excluded_cmds :HashMap<&mut MapData, [u8;512], u8> = HashMap::try_from(map)?;
-    for cmd in exclude_list.iter() {
+    for cmd in EXCLUDE_LISTS.iter() {
         let cmd_zero = cmd_to_bytes(cmd);
         excluded_cmds.insert(cmd_zero, 1, 0)?;
     }
+
+    //  add ebpf tail maps
+    let map = ebpf.take_map("JUMP_TABLE").unwrap();
+    let mut tail_call_map = ProgramArray::try_from(map)?;
+
+    // let prog_0: &mut TracePoint = ebpf.program_mut("tracepoint_binary_filter").unwrap().try_into()?;
+    // prog_0.load()?;
+    // let prog_0_fd = prog_0.fd().unwrap();
+    // tail_call_map.set(0, &prog_0_fd, 0)?;
+
+    let prg_list = ["tracepoint_binary_filter", "tracepoint_binary_display"];
+
+    for (i, prg) in prg_list.iter().enumerate() {
+        {
+            let program: &mut TracePoint = ebpf.program_mut(prg).unwrap().try_into()?;
+            program.load()?;
+            let fd = program.fd().unwrap();
+            tail_call_map.set(i as u32, fd, 0)?;
+        }
+    }
+
+
+
     
     
 
