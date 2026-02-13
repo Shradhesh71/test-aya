@@ -8,7 +8,7 @@ test-aya-common = { path = "../test-aya-common" }
 
 aya-ebpf = { workspace = true }
 aya-log-ebpf = { workspace = true }
-
+# aya-ebpf-bindings = "0.1.2"
 [build-dependencies]
 which = { workspace = true }
 

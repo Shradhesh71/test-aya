@@ -47,9 +47,14 @@ async fn main() -> anyhow::Result<()> {
             });
         }
     }
-    let program: &mut TracePoint = ebpf.program_mut("test_aya").unwrap().try_into()?;
+    let program: &mut TracePoint = ebpf.program_mut("tracepoint_binary").unwrap().try_into()?;
     program.load()?;
     program.attach("syscalls", "sys_enter_execve")?;
+
+    let program: &mut TracePoint = ebpf.program_mut("tracepoint_binary_exit").unwrap().try_into()?;
+    program.load()?;
+    program.attach("syscalls", "sys_exit_execve")?;
+
 
     let map = ebpf.map_mut("EXCLUDED_CMDS").unwrap();
     let mut excluded_cmds :HashMap<&mut MapData, [u8;512], u8> = HashMap::try_from(map)?;
@@ -67,7 +72,9 @@ async fn main() -> anyhow::Result<()> {
     // let prog_0_fd = prog_0.fd().unwrap();
     // tail_call_map.set(0, &prog_0_fd, 0)?;
 
-    let prg_list = ["tracepoint_binary_filter", "tracepoint_binary_display"];
+
+
+    let prg_list = ["test_aya_filter", "test_aya_display"];
 
     for (i, prg) in prg_list.iter().enumerate() {
         {
